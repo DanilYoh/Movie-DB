@@ -31,7 +31,7 @@ export default class Movie extends React.Component {
     }
 
     setDate = (date) => {
-        if (!(Boolean(date))) {
+        if (!date) {
             return "No release date"
         }
         return format(new Date(date), 'MMMM dd, yyyy')

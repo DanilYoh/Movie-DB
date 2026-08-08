@@ -50,8 +50,8 @@ export default class App extends React.Component {
                    })
                }
             })
-            .catch((err) => {
-                alert(`Возникла ошибка!`)
+            .catch(() => {
+                alert('Не удалось загрузить фильмы. Попробуйте ещё раз.')
             })
 
     }
@@ -113,8 +113,11 @@ export default class App extends React.Component {
                     query: 'return'
                 })
             })
-            .catch((err) => {
-                this.onError(err)
+            .catch(() => {
+                this.setState({
+                    loading: false,
+                    moviesList: []
+                })
             })
     }
 
@@ -170,7 +173,7 @@ export default class App extends React.Component {
                     </Online>
                     
                     <Offline>
-                        <Result status="500" title="Отсутвует подключение к интернету" subTitle="Найдите ближайшую точку Wi-Fi" />
+                        <Result status="500" title="Нет подключения к интернету" subTitle="Проверьте сеть и попробуйте ещё раз" />
                     </Offline>
 
                 </div>
