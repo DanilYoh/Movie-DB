@@ -1,42 +1,50 @@
+const API_URL = 'https://api.themoviedb.org/3'
+
 export default class TMDBService {
+  constructor(apiKey = import.meta.env.VITE_TMDB_API_KEY) {
+    this.apiKey = apiKey
+  }
 
-    #API_URL = 'https://api.themoviedb.org/3/';
-
-    #API_Key = 'api_key=6128513be2e1623e21bfbd12acfe302b';
-
-    _apiBase = (`${this.#API_URL}search/movie?${this.#API_Key}`);
-    _apiGenres = (`${this.#API_URL}genre/movie/lists?${this.#API_Key}`);
-
-    async getResource(url) {
-        const response = await fetch(url, {
-            mode: "cors",
-            header: {
-                "content-type": "application/json",
-            }
-        });
-
-        if (!response.ok) {
-            throw new Error(`could not fetch ${url}, received ${response.status}`);
-        }
-        const body = await response.json();
-        return body;
+  buildUrl(path, params = {}) {
+    if (!this.apiKey) {
+      throw new Error('VITE_TMDB_API_KEY is required')
     }
 
-    async getMovies(query, page) {
-        const searchUrl = `${this._apiBase}&query=${query}&page=${page}`;
-        const movies = await this.getResource(searchUrl);
-        return movies;
+    const searchParams = new URLSearchParams({
+      api_key: this.apiKey,
+      ...params
+    })
+
+    return `${API_URL}/${path}?${searchParams.toString()}`
+  }
+
+  async getResource(url) {
+    const response = await fetch(url, {
+      mode: 'cors',
+      headers: {
+        'content-type': 'application/json'
+      }
+    })
+
+    if (!response.ok) {
+      throw new Error(`Could not fetch ${url}; received ${response.status}`)
     }
 
-    async getReturn() {
-        const urlReturn = `${this._apiBase}&query='return'`;
-        const moviesReturn = await this.getResource(urlReturn);
-        return moviesReturn
-    }
+    return response.json()
+  }
 
-    async getGenres() {
-        const {genres} = await this.getResource(this._apiGenres);
-        return genres;
-    }
+  getMovies(query, page) {
+    return this.getResource(
+      this.buildUrl('search/movie', { query, page: String(page) })
+    )
+  }
 
+  getReturn() {
+    return this.getMovies('return', 1)
+  }
+
+  async getGenres() {
+    const { genres } = await this.getResource(this.buildUrl('genre/movie/list'))
+    return genres
+  }
 }
