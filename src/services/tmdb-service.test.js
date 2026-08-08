@@ -27,4 +27,19 @@ describe('TMDBService', () => {
       'VITE_TMDB_API_KEY is required'
     )
   })
+
+  it('does not expose the API key when TMDB returns an error', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: false,
+      status: 503
+    })
+    const service = new TMDBService('private-test-key')
+
+    await expect(service.getMovies('return', 1)).rejects.toThrow(
+      'TMDB request failed (503)'
+    )
+    await expect(service.getMovies('return', 1)).rejects.not.toThrow(
+      'private-test-key'
+    )
+  })
 })

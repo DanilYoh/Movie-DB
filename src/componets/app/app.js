@@ -1,7 +1,6 @@
 import React from "react";
 
-import { Offline, Online } from 'react-detect-offline';
-import {Pagination, Tabs, Result} from "antd";
+import {Button, Pagination, Tabs, Result} from "antd";
 
 import MovieList from "../movie-list";
 import Spinner from "../spinner";
@@ -24,36 +23,40 @@ export default class App extends React.Component {
         loading: true,
         pageTotal: 0,
         genres: [],
+        requestFailed: false,
         ratedMovies: JSON.parse(localStorage.getItem('rated')) || [],
     }
 
     TMDBService = new TMDBService();
     storage = window.localStorage;
 
-    updateMovies(query, page=1) {
-        this.TMDBService
-            .getMovies(query, page)
-            .then((res) => {
-               if (res.length === 0) {
-                   this.setState({
-                       moviesList: [],
-                       loading: false,
+    async updateMovies(query, page=1) {
+        this.setState({
+            loading: true,
+            requestFailed: false
+        })
 
-                   })
-               } else {
-                   this.setState( {
-                       moviesList: res.results,
-                       page: page,
-                       loading: false,
-                       pageTotal: res.total_results,
-                       query: query
-                   })
-               }
-            })
-            .catch(() => {
-                alert('Не удалось загрузить фильмы. Попробуйте ещё раз.')
-            })
+        try {
+            const res = await this.TMDBService.getMovies(query, page)
 
+            this.setState({
+                moviesList: Array.isArray(res.results) ? res.results : [],
+                page,
+                loading: false,
+                pageTotal: res.total_results || 0,
+                query,
+                requestFailed: false
+            })
+        } catch {
+            this.setState({
+                moviesList: [],
+                page,
+                loading: false,
+                pageTotal: 0,
+                query,
+                requestFailed: true
+            })
+        }
     }
 
    handleRating = async (id, star, data) => {
@@ -82,9 +85,6 @@ export default class App extends React.Component {
    }
 
     onSearch = (value='return') => {
-        this.setState({
-            loading: true
-        })
         this.updateMovies(value, 1);
     }
 
@@ -92,43 +92,25 @@ export default class App extends React.Component {
         window.scroll({
             top: 0
         })
-        this.setState({
-            loading: true
-        })
         this.updateMovies(this.state.query, curPage)
 
     }
 
     setMovies() {
-        this.setState({
-            loading: true
-        })
-        this.TMDBService
-            .getReturn()
-            .then((res) => {
-                this.setState({
-                    moviesList: res.results,
-                    loading: false,
-                    pageTotal: res.total_results,
-                    query: 'return'
-                })
-            })
-            .catch(() => {
-                this.setState({
-                    loading: false,
-                    moviesList: []
-                })
-            })
+        this.updateMovies('return', 1)
     }
 
-    setGenres = () => {
-        this.TMDBService
-            .getGenres()
-            .then((genres) => {
-                this.setState({
-                    genres: genres
-                })
-            })
+    setGenres = async () => {
+        try {
+            const genres = await this.TMDBService.getGenres()
+            this.setState({genres})
+        } catch {
+            this.setState({genres: []})
+        }
+    }
+
+    retryMovies = () => {
+        this.updateMovies(this.state.query || 'return', this.state.page || 1)
     }
 
     componentDidMount() {
@@ -139,10 +121,16 @@ export default class App extends React.Component {
 
 
     render() {
-        const {moviesList, loading, pageTotal, page, ratedMovies} = this.state;
+        const {moviesList, loading, pageTotal, page, ratedMovies, requestFailed} = this.state;
         const spinner = loading? <Spinner/> : null
         const contentSearch = <MovieList moviesList={moviesList} handleRating={this.handleRating}/> ;
         const contentRated = <MovieList moviesList={ratedMovies} handleRating={this.handleRating}/> ;
+        const requestError = requestFailed ? <Result
+            status="error"
+            title="Не удалось загрузить фильмы"
+            subTitle="Сервис TMDB не ответил. Проверьте подключение или настройки API и попробуйте ещё раз."
+            extra={<Button type="primary" onClick={this.retryMovies}>Повторить</Button>}
+        /> : null
 
         const pagination =  moviesList.length !== 0 ? <Pagination
             total={pageTotal}
@@ -157,25 +145,17 @@ export default class App extends React.Component {
         return (
             <GetGenresProvider value={this.state.genres}>
                 <div className='app'>
-                <Online>
-                        <Tabs defaultActiveKey="1" centered>
-                            <TabPane tab="Search" key='1'>
-                                <SearchBar onSearchMovie={this.onSearch}/>
-                                {contentSearch}
-                                {spinner}
-                                {pagination}
-                            </TabPane>
-                            <TabPane tab="Rated" key='2'>
-                                {spinner}
-                                {contentRated}
-                            </TabPane>
-                        </Tabs>
-                    </Online>
-                    
-                    <Offline>
-                        <Result status="500" title="Нет подключения к интернету" subTitle="Проверьте сеть и попробуйте ещё раз" />
-                    </Offline>
-
+                    <Tabs defaultActiveKey="1" centered>
+                        <TabPane tab="Search" key='1'>
+                            <SearchBar onSearchMovie={this.onSearch}/>
+                            {requestError || contentSearch}
+                            {spinner}
+                            {!requestFailed && pagination}
+                        </TabPane>
+                        <TabPane tab="Rated" key='2'>
+                            {contentRated}
+                        </TabPane>
+                    </Tabs>
                 </div>
             </GetGenresProvider>
         )
