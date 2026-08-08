@@ -27,7 +27,7 @@ export default class TMDBService {
     })
 
     if (!response.ok) {
-      throw new Error(`Could not fetch ${url}; received ${response.status}`)
+      throw new Error(`TMDB request failed (${response.status})`)
     }
 
     return response.json()
